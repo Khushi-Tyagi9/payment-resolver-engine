@@ -191,6 +191,7 @@
   .proof-line .tag{color:#5fbf8a;font-weight:700;}
   .proof-line .field{color:#e7ebf5;}
   .proof-reason{margin-top:14px;padding-top:14px;border-top:1px dashed rgba(255,255,255,.14);font-size:13px;color:#9aa4bb;font-style:italic;}
+  .proof-entry:not(:first-child){margin-top:22px;padding-top:22px;border-top:1px dashed rgba(255,255,255,.14);}
 
   /* ---------- footer ---------- */
   footer{padding:34px 0;border-top:1px solid var(--border);}
@@ -376,8 +377,8 @@
           <tbody>
             <tr><td>Razorpay status matches merchant status</td><td>&mdash;</td><td><span class="badge" style="background:#6b7280">Verified in sync</span></td></tr>
             <tr><td>Razorpay = SUCCESS, merchant = PENDING or FAILED</td><td>Safe</td><td><span class="badge" style="background:#2f7d52">Auto-corrected</span></td></tr>
-            <tr><td>Razorpay = FAILED, merchant = SUCCESS</td><td>Risky</td><td><span class="badge" style="background:#a2661f">Flagged for review</span></td></tr>
-            <tr><td>Any other status mismatch</td><td>Unclassified</td><td><span class="badge" style="background:#a2661f">Flagged for review</span></td></tr>
+            <tr><td>Razorpay = FAILED, merchant = SUCCESS</td><td>Risky</td><td><span class="badge" style="background:#c2410c">Flagged &middot; risky drift</span></td></tr>
+            <tr><td>Any other status mismatch</td><td>Unclassified</td><td><span class="badge" style="background:#a16207">Flagged &middot; unclassified</span></td></tr>
             <tr><td>SETTLEMENT_REVERSED on an already-resolved order</td><td>&mdash;</td><td><span class="badge" style="background:#a13a34">Disputed</span></td></tr>
             <tr><td>razorpay_status not in the lookup table</td><td>&mdash;</td><td><span class="badge" style="background:#5b4a86">AI-classified &middot; unconfirmed</span></td></tr>
           </tbody>
@@ -428,15 +429,7 @@
   <div class="wrap">
     <div class="proof-label reveal">Live from audit_log.db &middot; not a mockup</div>
     <div class="proof-strip reveal mono">
-      <div class="proof-line">
-        <span class="tag">AUTO_CORRECTED</span> &middot;
-        order <span class="field">__PROOF_ORDER_ID__</span> &middot;
-        record <span class="field">__PROOF_RECORD_ID__</span> &middot;
-        __PROOF_TIMESTAMP__<br>
-        razorpay=<span class="field">__PROOF_RAZORPAY_STATUS__</span> &rarr; merchant was <span class="field">__PROOF_MERCHANT_STATUS__</span> &rarr;
-        <span class="tag">₹__PROOF_AMOUNT__ recovered</span>
-      </div>
-      <div class="proof-reason">"__PROOF_REASON__"</div>
+      __PROOF_ENTRIES__
     </div>
   </div>
 </section>

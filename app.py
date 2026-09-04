@@ -11,7 +11,8 @@ from resolver import db
 from resolver.actions import (
     VERIFIED_IN_SYNC,
     AUTO_CORRECTED,
-    FLAGGED_FOR_REVIEW,
+    FLAGGED_RISKY_DRIFT,
+    FLAGGED_UNCLASSIFIED,
     DISPUTED,
     UNCONFIRMED_CLASSIFICATION,
     CORRELATION_FAILED,
@@ -22,7 +23,8 @@ st.set_page_config(page_title="Payment Resolver Engine", page_icon="⚡", layout
 FRIENDLY_LABEL = {
     VERIFIED_IN_SYNC: "Verified in sync",
     AUTO_CORRECTED: "Auto-corrected",
-    FLAGGED_FOR_REVIEW: "Flagged for review",
+    FLAGGED_RISKY_DRIFT: "Flagged · risky drift",
+    FLAGGED_UNCLASSIFIED: "Flagged · unclassified",
     DISPUTED: "Disputed",
     UNCONFIRMED_CLASSIFICATION: "AI-classified (unmapped)",
     CORRELATION_FAILED: "Correlation failed",
@@ -31,7 +33,8 @@ FRIENDLY_LABEL = {
 ACTION_ACCENT = {
     VERIFIED_IN_SYNC: "#6b7280",
     AUTO_CORRECTED: "#15803d",
-    FLAGGED_FOR_REVIEW: "#b45309",
+    FLAGGED_RISKY_DRIFT: "#c2410c",
+    FLAGGED_UNCLASSIFIED: "#a16207",
     DISPUTED: "#b91c1c",
     UNCONFIRMED_CLASSIFICATION: "#6d28d9",
     CORRELATION_FAILED: "#374151",
@@ -40,7 +43,8 @@ ACTION_ACCENT = {
 ACTION_BG = {
     VERIFIED_IN_SYNC: "#f1f2f4",
     AUTO_CORRECTED: "#e3f9ea",
-    FLAGGED_FOR_REVIEW: "#fef3c7",
+    FLAGGED_RISKY_DRIFT: "#fde3d3",
+    FLAGGED_UNCLASSIFIED: "#faf0d1",
     DISPUTED: "#fde4e4",
     UNCONFIRMED_CLASSIFICATION: "#f0eafd",
     CORRELATION_FAILED: "#f4f5f6",
@@ -49,7 +53,8 @@ ACTION_BG = {
 CHART_ORDER = [
     VERIFIED_IN_SYNC,
     AUTO_CORRECTED,
-    FLAGGED_FOR_REVIEW,
+    FLAGGED_RISKY_DRIFT,
+    FLAGGED_UNCLASSIFIED,
     DISPUTED,
     UNCONFIRMED_CLASSIFICATION,
     CORRELATION_FAILED,
@@ -268,9 +273,13 @@ def money_trace_html(record: dict) -> str:
             f"Razorpay's confirmed status disagreed with a merchant record that was simply behind. "
             f"The merchant order status was auto-corrected to match Razorpay — Rs.{amount:,} recovered."
         ),
-        FLAGGED_FOR_REVIEW: (
+        FLAGGED_RISKY_DRIFT: (
             "Merchant claimed success but Razorpay did not confirm it. This direction is never "
             "auto-resolved — it's flagged for manual review, since it could mean fraud, not lag."
+        ),
+        FLAGGED_UNCLASSIFIED: (
+            "Razorpay and the merchant record disagree in a way that doesn't match either defined "
+            "direction. Flagged rather than guessed — this combination isn't safe to auto-correct."
         ),
         DISPUTED: (
             "This record was already resolved once, then a SETTLEMENT_REVERSED event arrived. "
@@ -375,7 +384,8 @@ def main():
     with c4:
         st.markdown(metric_card("Recovered amount", f"Rs.{recovered_amount:,.0f}", hero=True), unsafe_allow_html=True)
     with c5:
-        st.markdown(metric_card("Flagged for review", str(int(counts.get(FLAGGED_FOR_REVIEW, 0)))), unsafe_allow_html=True)
+        flagged_total = int(counts.get(FLAGGED_RISKY_DRIFT, 0)) + int(counts.get(FLAGGED_UNCLASSIFIED, 0))
+        st.markdown(metric_card("Flagged for review", str(flagged_total)), unsafe_allow_html=True)
     with c6:
         st.markdown(metric_card("Disputed", str(int(counts.get(DISPUTED, 0)))), unsafe_allow_html=True)
 

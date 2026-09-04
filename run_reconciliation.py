@@ -6,7 +6,8 @@ from resolver import db
 from resolver.actions import (
     VERIFIED_IN_SYNC,
     AUTO_CORRECTED,
-    FLAGGED_FOR_REVIEW,
+    FLAGGED_RISKY_DRIFT,
+    FLAGGED_UNCLASSIFIED,
     DISPUTED,
     UNCONFIRMED_CLASSIFICATION,
     CORRELATION_FAILED,
@@ -35,7 +36,8 @@ def main() -> None:
     print(f"Total records processed:      {len(audit_rows)}")
     print(f"Verified in sync:             {counts[VERIFIED_IN_SYNC]}")
     print(f"Auto-corrected (drift):       {counts[AUTO_CORRECTED]}   -> Rs.{recovered_amount:,} recovered")
-    print(f"Flagged for review:           {counts[FLAGGED_FOR_REVIEW]}")
+    flagged_total = counts[FLAGGED_RISKY_DRIFT] + counts[FLAGGED_UNCLASSIFIED]
+    print(f"Flagged for review:           {flagged_total}")
     print(f"Disputed (reversal caught):   {counts[DISPUTED]}")
     print(f"AI-classified (unmapped):     {counts[UNCONFIRMED_CLASSIFICATION]}")
     print(f"Correlation failures:         {counts[CORRELATION_FAILED]}")

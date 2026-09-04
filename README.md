@@ -52,9 +52,11 @@ Processing logic per record, in order:
    - Match → `VERIFIED_IN_SYNC`, no action
    - Safe-direction drift (Razorpay=SUCCESS, merchant=PENDING/FAILED) → **auto-correct**
      the merchant status, log `AUTO_CORRECTED`
-   - Risky-direction drift (Razorpay=FAILED, merchant=SUCCESS), or any other mismatch →
-     **flag only**, log `FLAGGED_FOR_REVIEW` — never auto-corrected, regardless of
-     confidence
+   - Risky-direction drift (Razorpay=FAILED, merchant=SUCCESS) → **flag only**, log
+     `FLAGGED_RISKY_DRIFT` — never auto-corrected, regardless of confidence
+   - Any other status mismatch → **flag only**, log `FLAGGED_UNCLASSIFIED` — kept as a
+     distinct outcome from risky drift, since the reasoning differs even though neither
+     auto-corrects
 5. **Idempotency** — `audit_log.record_id` is a primary key; re-running the pipeline
    against an already-processed batch does not duplicate rows.
 
