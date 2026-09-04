@@ -1,6 +1,9 @@
 """Payment Resolver Engine dashboard — reads directly from the SQLite audit_log
 produced by run_reconciliation.py."""
 
+import html
+
+import altair as alt
 import pandas as pd
 import streamlit as st
 
@@ -14,16 +17,197 @@ from resolver.actions import (
     CORRELATION_FAILED,
 )
 
-st.set_page_config(page_title="Payment Resolver Engine", layout="wide")
+st.set_page_config(page_title="Payment Resolver Engine", page_icon="⚡", layout="wide")
 
-ROW_COLORS = {
-    AUTO_CORRECTED: "#d4f4dd",
-    FLAGGED_FOR_REVIEW: "#fdecc8",
-    DISPUTED: "#fbd5d5",
-    VERIFIED_IN_SYNC: "#e8e8e8",
-    UNCONFIRMED_CLASSIFICATION: "#e0d9f7",
-    CORRELATION_FAILED: "#f5f5f5",
+FRIENDLY_LABEL = {
+    VERIFIED_IN_SYNC: "Verified in sync",
+    AUTO_CORRECTED: "Auto-corrected",
+    FLAGGED_FOR_REVIEW: "Flagged for review",
+    DISPUTED: "Disputed",
+    UNCONFIRMED_CLASSIFICATION: "AI-classified (unmapped)",
+    CORRELATION_FAILED: "Correlation failed",
 }
+
+ACTION_ACCENT = {
+    VERIFIED_IN_SYNC: "#6b7280",
+    AUTO_CORRECTED: "#15803d",
+    FLAGGED_FOR_REVIEW: "#b45309",
+    DISPUTED: "#b91c1c",
+    UNCONFIRMED_CLASSIFICATION: "#6d28d9",
+    CORRELATION_FAILED: "#374151",
+}
+
+ACTION_BG = {
+    VERIFIED_IN_SYNC: "#f1f2f4",
+    AUTO_CORRECTED: "#e3f9ea",
+    FLAGGED_FOR_REVIEW: "#fef3c7",
+    DISPUTED: "#fde4e4",
+    UNCONFIRMED_CLASSIFICATION: "#f0eafd",
+    CORRELATION_FAILED: "#f4f5f6",
+}
+
+CHART_ORDER = [
+    VERIFIED_IN_SYNC,
+    AUTO_CORRECTED,
+    FLAGGED_FOR_REVIEW,
+    DISPUTED,
+    UNCONFIRMED_CLASSIFICATION,
+    CORRELATION_FAILED,
+]
+
+CUSTOM_CSS = """
+<style>
+#MainMenu, footer, header {visibility: hidden;}
+.block-container {padding-top: 1.5rem; padding-bottom: 3rem; max-width: 1200px;}
+
+.hero {
+    background: linear-gradient(120deg, #0c1e3e 0%, #14336b 55%, #1d4fd8 100%);
+    border-radius: 18px;
+    padding: 30px 36px;
+    color: #f3f6ff;
+    margin-bottom: 28px;
+    box-shadow: 0 12px 30px rgba(20, 51, 107, 0.28);
+}
+.hero-badge {
+    display: inline-block;
+    background: rgba(255,255,255,0.14);
+    border: 1px solid rgba(255,255,255,0.28);
+    color: #cfe0ff;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 4px 12px;
+    border-radius: 999px;
+    margin-bottom: 14px;
+}
+.hero h1 {
+    font-size: 30px;
+    font-weight: 800;
+    margin: 0 0 8px 0;
+    color: #ffffff;
+}
+.hero p {
+    font-size: 15px;
+    color: #cdd9f5;
+    margin: 0;
+    max-width: 680px;
+    line-height: 1.5;
+}
+
+.section-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: #111827;
+    margin: 30px 0 14px 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.section-title .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #1d4fd8; display: inline-block;
+}
+
+.metric-card {
+    background: #ffffff;
+    border: 1px solid #e7e9ee;
+    border-radius: 14px;
+    padding: 16px 18px;
+    box-shadow: 0 2px 10px rgba(17, 24, 39, 0.04);
+    height: 100%;
+}
+.metric-card .label {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: #6b7280;
+    margin-bottom: 6px;
+}
+.metric-card .value {
+    font-size: 26px;
+    font-weight: 800;
+    color: #111827;
+}
+.metric-card.hero-metric {
+    background: linear-gradient(135deg, #16a34a 0%, #0d8a3e 100%);
+    border: none;
+    box-shadow: 0 8px 20px rgba(21, 128, 61, 0.30);
+}
+.metric-card.hero-metric .label { color: #d7f5e3; }
+.metric-card.hero-metric .value { color: #ffffff; }
+
+.small-stats {
+    display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px;
+}
+.small-stat {
+    background: #f8f9fb;
+    border: 1px solid #eceef2;
+    border-radius: 10px;
+    padding: 8px 14px;
+    font-size: 13px;
+    color: #374151;
+}
+.small-stat b { color: #111827; }
+
+.legend-row { display: flex; gap: 14px; flex-wrap: wrap; margin: 4px 0 14px 0; }
+.legend-chip { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: #4b5563; }
+.legend-swatch { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+
+.audit-scroll {
+    max-height: 560px;
+    overflow-y: auto;
+    border-radius: 14px;
+    border: 1px solid #e7e9ee;
+    box-shadow: 0 2px 10px rgba(17, 24, 39, 0.04);
+}
+table.audit-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+table.audit-table thead th {
+    position: sticky; top: 0;
+    background: #111827; color: #f3f4f6;
+    text-transform: uppercase; font-size: 11px; letter-spacing: 0.04em;
+    padding: 10px 14px; text-align: left; z-index: 1;
+}
+table.audit-table td {
+    padding: 10px 14px;
+    border-bottom: 1px solid #eef0f3;
+    color: #1f2937;
+    vertical-align: top;
+}
+table.audit-table tbody tr:hover { filter: brightness(0.97); }
+table.audit-table td.amount { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+table.audit-table td.reason { color: #6b7280; font-size: 12.5px; max-width: 340px; }
+
+.badge {
+    display: inline-block; padding: 3px 11px; border-radius: 999px;
+    font-size: 11.5px; font-weight: 700; color: #ffffff; white-space: nowrap;
+}
+
+.trace-card {
+    background: #ffffff; border: 1px solid #e7e9ee; border-radius: 16px;
+    padding: 22px 26px; box-shadow: 0 2px 10px rgba(17,24,39,0.04);
+}
+.trace-flow { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin: 14px 0 18px 0; }
+.trace-chip {
+    background: #f8f9fb; border: 1px solid #eceef2; border-radius: 12px;
+    padding: 10px 16px; min-width: 150px;
+}
+.trace-chip .k { font-size: 11px; text-transform: uppercase; letter-spacing: 0.03em; color: #9ca3af; font-weight: 700; }
+.trace-chip .v { font-size: 15px; font-weight: 700; color: #111827; margin-top: 2px; }
+.trace-arrow { color: #9ca3af; font-size: 20px; }
+.trace-note {
+    background: #f8f9fb; border-left: 3px solid #1d4fd8; border-radius: 8px;
+    padding: 12px 16px; font-size: 13.5px; color: #374151; line-height: 1.55;
+}
+.trace-reason { margin-top: 10px; font-size: 12.5px; color: #9ca3af; }
+
+[data-testid="stMultiSelect"] [data-baseweb="tag"] {
+    background-color: #1d4fd8 !important;
+    border-radius: 999px !important;
+}
+</style>
+"""
 
 
 @st.cache_data(ttl=5)
@@ -35,7 +219,42 @@ def load_data():
     return orders, audit
 
 
-def money_trace(record: dict) -> str:
+def metric_card(label: str, value: str, hero: bool = False) -> str:
+    cls = "metric-card hero-metric" if hero else "metric-card"
+    return f'<div class="{cls}"><div class="label">{html.escape(label)}</div><div class="value">{value}</div></div>'
+
+
+def action_badge(action: str) -> str:
+    return (
+        f'<span class="badge" style="background:{ACTION_ACCENT[action]}">'
+        f'{html.escape(FRIENDLY_LABEL[action])}</span>'
+    )
+
+
+def build_audit_table_html(rows: pd.DataFrame) -> str:
+    body_rows = []
+    for _, r in rows.iterrows():
+        action = r["action_taken"]
+        bg = ACTION_BG.get(action, "#ffffff")
+        body_rows.append(
+            f'<tr style="background:{bg}">'
+            f'<td>{html.escape(str(r["order_id"]))}</td>'
+            f'<td>{html.escape(str(r["razorpay_status"]))}</td>'
+            f'<td>{html.escape(str(r["merchant_status"]))}</td>'
+            f'<td class="amount">Rs.{r["amount"]:,}</td>'
+            f'<td>{action_badge(action)}</td>'
+            f'<td class="reason">{html.escape(str(r["reason"]))}</td>'
+            f'</tr>'
+        )
+    return (
+        '<div class="audit-scroll"><table class="audit-table">'
+        '<thead><tr><th>Order ID</th><th>Razorpay Status</th><th>Merchant Status</th>'
+        '<th>Amount</th><th>Action Taken</th><th>Reason</th></tr></thead>'
+        f'<tbody>{"".join(body_rows)}</tbody></table></div>'
+    )
+
+
+def money_trace_html(record: dict) -> str:
     action = record["action_taken"]
     order_id = record["order_id"]
     payment_id = record["razorpay_payment_id"]
@@ -43,43 +262,92 @@ def money_trace(record: dict) -> str:
     razorpay_status = record["razorpay_status"]
     merchant_status = record["merchant_status"]
 
-    lines = [
-        f"Order **{order_id}** — payment `{payment_id}` — amount Rs.{amount:,}",
-        f"Razorpay reported: **{razorpay_status}** | Merchant system showed: **{merchant_status}**",
-    ]
-
-    if action == VERIFIED_IN_SYNC:
-        lines.append("Both systems agreed. No action needed.")
-    elif action == AUTO_CORRECTED:
-        lines.append(
+    narrative = {
+        VERIFIED_IN_SYNC: "Both systems agreed. No action needed.",
+        AUTO_CORRECTED: (
             f"Razorpay's confirmed status disagreed with a merchant record that was simply behind. "
             f"The merchant order status was auto-corrected to match Razorpay — Rs.{amount:,} recovered."
-        )
-    elif action == FLAGGED_FOR_REVIEW:
-        lines.append(
+        ),
+        FLAGGED_FOR_REVIEW: (
             "Merchant claimed success but Razorpay did not confirm it. This direction is never "
             "auto-resolved — it's flagged for manual review, since it could mean fraud, not lag."
-        )
-    elif action == DISPUTED:
-        lines.append(
+        ),
+        DISPUTED: (
             "This record was already resolved once, then a SETTLEMENT_REVERSED event arrived. "
             "Routed to DISPUTED rather than silently dropped."
-        )
-    elif action == UNCONFIRMED_CLASSIFICATION:
-        lines.append(
+        ),
+        UNCONFIRMED_CLASSIFICATION: (
             "Razorpay returned a status code outside the known lookup table. The LLM proposed a "
             "category, logged as UNCONFIRMED — no automatic action was taken."
-        )
-    elif action == CORRELATION_FAILED:
-        lines.append("This payment_id did not map cleanly to a single order_id/amount. Skipped before any comparison.")
+        ),
+        CORRELATION_FAILED: (
+            "This payment_id did not map cleanly to a single order_id/amount. Skipped before any comparison."
+        ),
+    }[action]
 
-    lines.append(f"Reason logged: {record['reason']}")
-    return "\n\n".join(lines)
+    return f"""
+    <div class="trace-card">
+        <div style="font-size:15px; font-weight:700; color:#111827;">
+            Order {html.escape(str(order_id))}
+            <span style="color:#9ca3af; font-weight:500;">&middot; payment {html.escape(str(payment_id))}
+            &middot; Rs.{amount:,}</span>
+        </div>
+        <div class="trace-flow">
+            <div class="trace-chip"><div class="k">Razorpay status</div><div class="v">{html.escape(str(razorpay_status))}</div></div>
+            <div class="trace-arrow">&#8594;</div>
+            <div class="trace-chip"><div class="k">Merchant status</div><div class="v">{html.escape(str(merchant_status))}</div></div>
+            <div class="trace-arrow">&#8594;</div>
+            <div class="trace-chip" style="background:{ACTION_BG[action]}; border-color:{ACTION_ACCENT[action]}33;">
+                <div class="k">Action taken</div><div class="v" style="color:{ACTION_ACCENT[action]};">{html.escape(FRIENDLY_LABEL[action])}</div>
+            </div>
+        </div>
+        <div class="trace-note">{html.escape(narrative)}</div>
+        <div class="trace-reason">Reason logged: {html.escape(str(record["reason"]))}</div>
+    </div>
+    """
+
+
+def render_outcome_chart(counts: pd.Series):
+    df = pd.DataFrame({
+        "action": CHART_ORDER,
+        "count": [int(counts.get(a, 0)) for a in CHART_ORDER],
+    })
+    df["label"] = df["action"].map(FRIENDLY_LABEL)
+
+    chart = (
+        alt.Chart(df)
+        .mark_bar(cornerRadiusEnd=6, size=26)
+        .encode(
+            x=alt.X("count:Q", title=None, axis=alt.Axis(grid=True, gridColor="#f0f1f3")),
+            y=alt.Y("label:N", sort=None, title=None),
+            color=alt.Color(
+                "action:N",
+                scale=alt.Scale(domain=CHART_ORDER, range=[ACTION_ACCENT[a] for a in CHART_ORDER]),
+                legend=None,
+            ),
+            tooltip=[alt.Tooltip("label:N", title="Outcome"), alt.Tooltip("count:Q", title="Count")],
+        )
+        .properties(height=220)
+    )
+    text = chart.mark_text(align="left", dx=6, color="#374151", fontWeight=600).encode(text="count:Q")
+    st.altair_chart((chart + text).configure_view(strokeWidth=0).configure_axis(labelColor="#374151", labelFontSize=12.5), use_container_width=True)
 
 
 def main():
-    st.title("Payment Resolver Engine")
-    st.caption("Razorpay vs. merchant order status — batch reconciliation audit trail")
+    st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
+
+    st.markdown(
+        """
+        <div class="hero">
+            <div class="hero-badge">Track 3 &middot; AI Revenue Recovery &middot; Razorpay AI Buildathon 2026</div>
+            <h1>Payment Resolver Engine</h1>
+            <p>Razorpay already tells merchants the truth eventually. We guarantee the merchant's own
+            system actually caught it — batch reconciliation with a direction-aware recovery action
+            and a full audit trail behind every decision.</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
     try:
         orders, audit = load_data()
@@ -96,50 +364,58 @@ def main():
     counts = audit["action_taken"].value_counts()
     recovered_amount = merged.loc[merged["action_taken"] == AUTO_CORRECTED, "amount"].sum()
 
-    st.subheader("Summary")
+    st.markdown('<div class="section-title"><span class="dot"></span>Summary</div>', unsafe_allow_html=True)
     c1, c2, c3, c4, c5, c6 = st.columns(6)
-    c1.metric("Total processed", len(audit))
-    c2.metric("Verified in sync", int(counts.get(VERIFIED_IN_SYNC, 0)))
-    c3.metric("Auto-corrected", int(counts.get(AUTO_CORRECTED, 0)))
-    c4.metric("Recovered amount", f"Rs.{recovered_amount:,.0f}")
-    c5.metric("Flagged for review", int(counts.get(FLAGGED_FOR_REVIEW, 0)))
-    c6.metric("Disputed", int(counts.get(DISPUTED, 0)))
+    with c1:
+        st.markdown(metric_card("Total processed", str(len(audit))), unsafe_allow_html=True)
+    with c2:
+        st.markdown(metric_card("Verified in sync", str(int(counts.get(VERIFIED_IN_SYNC, 0)))), unsafe_allow_html=True)
+    with c3:
+        st.markdown(metric_card("Auto-corrected", str(int(counts.get(AUTO_CORRECTED, 0)))), unsafe_allow_html=True)
+    with c4:
+        st.markdown(metric_card("Recovered amount", f"Rs.{recovered_amount:,.0f}", hero=True), unsafe_allow_html=True)
+    with c5:
+        st.markdown(metric_card("Flagged for review", str(int(counts.get(FLAGGED_FOR_REVIEW, 0)))), unsafe_allow_html=True)
+    with c6:
+        st.markdown(metric_card("Disputed", str(int(counts.get(DISPUTED, 0)))), unsafe_allow_html=True)
 
-    st.subheader("Outcome distribution")
-    outcome_counts = counts.reindex(
-        [VERIFIED_IN_SYNC, AUTO_CORRECTED, FLAGGED_FOR_REVIEW, DISPUTED, UNCONFIRMED_CLASSIFICATION, CORRELATION_FAILED],
-        fill_value=0,
-    )
-    st.bar_chart(outcome_counts)
-
-    st.subheader("Audit log")
-    display_cols = ["order_id", "razorpay_status", "merchant_status", "action_taken", "reason"]
-    display_df = merged[display_cols].rename(columns={
-        "order_id": "Order ID",
-        "razorpay_status": "Razorpay Status",
-        "merchant_status": "Merchant Status",
-        "action_taken": "Action Taken",
-        "reason": "Reason",
-    })
-
-    st.caption(
-        "Green = auto-corrected · Amber = flagged for review · Red = disputed · Gray = verified in sync"
+    st.markdown(
+        f"""
+        <div class="small-stats">
+            <div class="small-stat">AI-classified (unmapped): <b>{int(counts.get(UNCONFIRMED_CLASSIFICATION, 0))}</b></div>
+            <div class="small-stat">Correlation failures: <b>{int(counts.get(CORRELATION_FAILED, 0))}</b></div>
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
 
-    def highlight_row(row):
-        color = ROW_COLORS.get(row["Action Taken"], "#ffffff")
-        return [f"background-color: {color}; color: #1a1a1a"] * len(row)
+    st.markdown('<div class="section-title"><span class="dot"></span>Outcome distribution</div>', unsafe_allow_html=True)
+    render_outcome_chart(counts)
 
-    # st.dataframe renders through a canvas grid that ignores Styler colors —
-    # st.table renders static HTML, which is what actually shows the color-coding.
-    st.table(display_df.style.apply(highlight_row, axis=1))
+    st.markdown('<div class="section-title"><span class="dot"></span>Audit log</div>', unsafe_allow_html=True)
+    legend_chips = "".join(
+        f'<span class="legend-chip"><span class="legend-swatch" style="background:{ACTION_ACCENT[a]}"></span>{FRIENDLY_LABEL[a]}</span>'
+        for a in CHART_ORDER
+    )
+    st.markdown(f'<div class="legend-row">{legend_chips}</div>', unsafe_allow_html=True)
 
-    st.subheader("Money trace")
-    options = merged["order_id"] + " — " + merged["record_id"]
-    choice = st.selectbox("Pick a record", options)
+    action_options = [a for a in CHART_ORDER if a in counts.index]
+    selected_actions = st.multiselect(
+        "Filter by action taken",
+        options=action_options,
+        default=action_options,
+        format_func=lambda a: FRIENDLY_LABEL[a],
+        label_visibility="collapsed",
+    )
+    filtered = merged[merged["action_taken"].isin(selected_actions)] if selected_actions else merged
+    st.markdown(build_audit_table_html(filtered), unsafe_allow_html=True)
+
+    st.markdown('<div class="section-title"><span class="dot"></span>Money trace</div>', unsafe_allow_html=True)
+    options = (merged["order_id"] + " — " + merged["record_id"]).tolist()
+    choice = st.selectbox("Pick a record", options, label_visibility="collapsed")
     chosen_record_id = choice.split(" — ")[-1]
     record = merged[merged["record_id"] == chosen_record_id].iloc[0].to_dict()
-    st.markdown(money_trace(record))
+    st.markdown(money_trace_html(record), unsafe_allow_html=True)
 
 
 if __name__ == "__main__":
