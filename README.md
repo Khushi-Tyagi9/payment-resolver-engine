@@ -101,3 +101,19 @@ external calls):
 ```bash
 python -m unittest discover -s tests
 ```
+
+## Landing page
+
+`docs/index.html` is a static, self-contained submission landing page (GitHub Pages,
+`main` branch, `/docs` folder). Every number on it — the recovered amount, the outcome
+counts, the proof-strip audit row — is templated from the real `audit_log`, never
+hand-typed. Regenerate it after a fresh run:
+
+```bash
+python run_reconciliation.py
+python generate_landing_page.py
+```
+
+The source template lives at `landing/template.html`; `generate_landing_page.py` reads
+the SQLite database (read-only) and writes `docs/index.html`. It does not touch the
+reconciliation pipeline, data generator, or dashboard.
