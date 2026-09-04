@@ -83,14 +83,6 @@ def insert_audit_row(conn: sqlite3.Connection, row: dict) -> bool:
     return cur.rowcount == 1
 
 
-def update_merchant_status(conn: sqlite3.Connection, order_id: str, new_status: str) -> None:
-    conn.execute(
-        "UPDATE orders_batch SET merchant_order_status = ? WHERE order_id = ?",
-        (new_status, order_id),
-    )
-    conn.commit()
-
-
 def fetch_audit_log(conn: sqlite3.Connection) -> list[dict]:
     rows = conn.execute("SELECT * FROM audit_log ORDER BY timestamp, record_id").fetchall()
     return [dict(row) for row in rows]

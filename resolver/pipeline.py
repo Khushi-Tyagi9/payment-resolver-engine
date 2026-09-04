@@ -82,13 +82,15 @@ def process_batch(records: list[dict], classify_fn=classify_unmapped_code) -> tu
 
 
 def run_batch(conn, records: list[dict], classify_fn=classify_unmapped_code) -> list[dict]:
-    """Process a batch and persist audit rows + merchant corrections to SQLite."""
-    audit_rows, corrections = process_batch(records, classify_fn)
+    """Process a batch and persist audit rows to SQLite.
+
+    orders_batch is never written back to — it stays exactly as generated,
+    the observed input. What changed, and to what, lives only in
+    audit_log's action_taken and reason columns.
+    """
+    audit_rows, _corrections = process_batch(records, classify_fn)
 
     for row in audit_rows:
         db.insert_audit_row(conn, row)
-
-    for order_id, new_status in corrections:
-        db.update_merchant_status(conn, order_id, new_status)
 
     return audit_rows
