@@ -22,8 +22,9 @@ below real and measured rather than merely designed.
 
 ```
 resolver/
-  data_generator.py   synthetic orders_batch: 35 clean matches, 8 safe-direction
-                       drift, 4 risky-direction drift, 2 reversal events, 1 unmapped code
+  data_generator.py   synthetic orders_batch: 32 clean matches, 8 safe-direction
+                       drift, 4 risky-direction drift, 1 unclassified drift, 2 reversal
+                       events, 1 unmapped code, 2 correlation failures
   lookup.py            error_code_lookup: raw razorpay_status -> SUCCESS/FAILED/PENDING
   correlate.py          correlation: payment_id must map to exactly one order_id + amount
   compare.py            pure drift comparison (MATCH / DRIFT_SAFE / DRIFT_RISKY / DRIFT_OTHER)

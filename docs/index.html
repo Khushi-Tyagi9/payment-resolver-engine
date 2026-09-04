@@ -6,7 +6,7 @@
 <title>Order Sync Agent — Payment Reconciliation for Razorpay</title>
 <meta name="description" content="Razorpay already knows what happened to a payment. Order Sync Agent makes sure your merchant system does too — batch reconciliation with a direction-aware recovery action and a full audit trail.">
 <meta property="og:title" content="Order Sync Agent — Payment Reconciliation for Razorpay">
-<meta property="og:description" content="&#8377;156,175 recovered across 50 reconciled orders. Direction-aware drift detection, deterministic Python, one narrow LLM call.">
+<meta property="og:description" content="&#8377;245,443 recovered across 50 reconciled orders. Direction-aware drift detection, deterministic Python, one narrow LLM call.">
 <meta property="og:type" content="website">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%2326314a'/%3E%3Cpath d='M26 52 L43 68 L76 30' stroke='%232f7d52' stroke-width='11' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -247,7 +247,7 @@
     <h1>Order Sync Agent</h1>
     <p class="subhead">Razorpay already knows what happened to a payment. We make sure your system does too.</p>
     <div class="headline-stat reveal">
-      <div class="value">&#8377;156,175</div>
+      <div class="value">&#8377;245,443</div>
       <div class="caption">recovered across 50 reconciled orders</div>
     </div>
   </div>
@@ -398,7 +398,7 @@
     <div class="impact-note reveal">Generated straight from <code>audit_log</code> in this repo's own SQLite database &mdash; nothing on this page is hand-typed.</div>
     <div class="stat-grid reveal">
       <div class="stat-col" style="--stat-color:#726c5c">
-        <div class="num">35</div>
+        <div class="num">32</div>
         <div class="lbl">Verified in sync</div>
       </div>
       <div class="stat-col" style="--stat-color:#2f7d52">
@@ -406,7 +406,7 @@
         <div class="lbl">Auto-corrected</div>
       </div>
       <div class="stat-col" style="--stat-color:#a2661f">
-        <div class="num">4</div>
+        <div class="num">5</div>
         <div class="lbl">Flagged for review</div>
       </div>
       <div class="stat-col" style="--stat-color:#a13a34">
@@ -418,7 +418,7 @@
         <div class="lbl">AI-classified</div>
       </div>
       <div class="stat-col" style="--stat-color:#26314a">
-        <div class="num">0</div>
+        <div class="num">2</div>
         <div class="lbl">Correlation failures</div>
       </div>
     </div>
@@ -429,7 +429,7 @@
   <div class="wrap">
     <div class="proof-label reveal">Live from audit_log.db &middot; not a mockup</div>
     <div class="proof-strip reveal mono">
-      <div class="proof-entry"><div class="proof-line"><span class="tag" style="color:#5fbf8a">AUTO_CORRECTED</span> &middot; order <span class="field">ORD1041</span> &middot; record <span class="field">REC0041</span> &middot; 01 Sep 2026, 11:03<br>razorpay=<span class="field">captured</span> &rarr; merchant was <span class="field">FAILED</span> &rarr; <span class="tag" style="color:#5fbf8a">&#8377;40,727 recovered</span></div><div class="proof-reason">"razorpay confirmed SUCCESS; merchant record was behind at FAILED — auto-corrected"</div></div><div class="proof-entry"><div class="proof-line"><span class="tag" style="color:#e2867e">DISPUTED</span> &middot; order <span class="field">ORD1008</span> &middot; record <span class="field">REC0049</span> &middot; 02 Sep 2026, 09:24<br>razorpay=<span class="field">captured</span> &rarr; merchant was <span class="field">SUCCESS</span></div><div class="proof-reason">"SETTLEMENT_REVERSED event received for a record already resolved; routed to dispute review, not dropped"</div></div><div class="proof-entry"><div class="proof-line"><span class="tag" style="color:#b9a6f0">AI-CLASSIFIED &middot; UNCONFIRMED</span> &middot; order <span class="field">ORD1048</span> &middot; record <span class="field">REC0048</span> &middot; 01 Sep 2026, 11:24<br>razorpay=<span class="field">npci_timeout</span> &rarr; merchant was <span class="field">PENDING</span></div><div class="proof-reason">"razorpay_status not present in error_code_lookup; routed to LLM classifier as unconfirmed, no automatic action taken | LLM proposed_category=FAILED reasoning=The status code npci_timeout indicates that the request to the NPCI failed due to a timeout, meaning the transaction could not be confirmed within the expected timeframe. This is treated as a failure in most payment systems."</div></div>
+      <div class="proof-entry"><div class="proof-line"><span class="tag" style="color:#5fbf8a">AUTO_CORRECTED</span> &middot; order <span class="field">ORD1040</span> &middot; record <span class="field">REC0040</span> &middot; 01 Sep 2026, 11:00<br>razorpay=<span class="field">captured</span> &rarr; merchant was <span class="field">PENDING</span> &rarr; <span class="tag" style="color:#5fbf8a">&#8377;45,186 recovered</span></div><div class="proof-reason">"razorpay confirmed SUCCESS; merchant record was behind at PENDING — auto-corrected"</div></div><div class="proof-entry"><div class="proof-line"><span class="tag" style="color:#e2867e">DISPUTED</span> &middot; order <span class="field">ORD1029</span> &middot; record <span class="field">REC0049</span> &middot; 02 Sep 2026, 10:27<br>razorpay=<span class="field">captured</span> &rarr; merchant was <span class="field">SUCCESS</span></div><div class="proof-reason">"SETTLEMENT_REVERSED event received for a record already resolved; routed to dispute review, not dropped"</div></div><div class="proof-entry"><div class="proof-line"><span class="tag" style="color:#b9a6f0">AI-CLASSIFIED &middot; UNCONFIRMED</span> &middot; order <span class="field">ORD1045</span> &middot; record <span class="field">REC0045</span> &middot; 01 Sep 2026, 11:15<br>razorpay=<span class="field">npci_timeout</span> &rarr; merchant was <span class="field">PENDING</span></div><div class="proof-reason">"razorpay_status not present in error_code_lookup; routed to LLM classifier as unconfirmed, no automatic action taken | LLM proposed_category=PENDING reasoning=The npci_timeout status indicates that the payment gateway experienced a timeout during the transaction process, typically leaving the transaction state indeterminate. As the outcome is not yet confirmed, it should be treated as pending until a final status is returned."</div></div>
     </div>
   </div>
 </section>

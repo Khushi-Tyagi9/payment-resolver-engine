@@ -1,15 +1,20 @@
 """Synthetic orders_batch generator.
 
-Seeds the five scenario types called out in the spec:
-  - ~35 clean matches (razorpay_status == merchant_order_status)
+Seeds the scenario types called out in the spec:
+  - ~32 clean matches (razorpay_status == merchant_order_status)
   - ~8 drift, safe direction   (razorpay=SUCCESS, merchant=PENDING/FAILED)
   - ~4 drift, risky direction  (razorpay=FAILED,  merchant=SUCCESS)
   - ~2 reversal events (SETTLEMENT_REVERSED applied to an already-matched record)
   - ~1 unmapped razorpay_status code
+  - ~2 correlation failures (one razorpay_payment_id shared by two records
+    that disagree on order_id, so neither can be trusted to belong to a
+    single order)
+  - ~1 unclassified drift (a status mismatch outside the safe/risky
+    directions, e.g. razorpay=PENDING vs merchant=FAILED)
 
 Reversal rows are additional rows appended to the batch, layered on top of
 two of the clean-match SUCCESS/SUCCESS records — so the total row count is
-35 + 8 + 4 + 1 + 2 = 50, matching the spec's demo output.
+32 + 8 + 4 + 1 + 2 + 2 + 1 = 50.
 """
 
 import random
@@ -52,8 +57,8 @@ def generate_batch(seed: int = 42) -> list[dict]:
 
     seq = 0
 
-    # ~35 clean matches, weighted across SUCCESS/PENDING/FAILED
-    clean_signal_plan = [SUCCESS] * 20 + [PENDING] * 8 + [FAILED] * 7
+    # ~32 clean matches, weighted across SUCCESS/PENDING/FAILED
+    clean_signal_plan = [SUCCESS] * 17 + [PENDING] * 8 + [FAILED] * 7
     rng.shuffle(clean_signal_plan)
     for signal in clean_signal_plan:
         seq += 1
@@ -105,6 +110,36 @@ def generate_batch(seed: int = 42) -> list[dict]:
         "amount": _random_amount(rng),
         "razorpay_status": UNMAPPED_RAW_STATUS,
         "merchant_order_status": PENDING,
+        "event_type": PAYMENT_UPDATE,
+        "timestamp": base_time + timedelta(minutes=seq * 3),
+    })
+
+    # ~2 correlation failures: one razorpay_payment_id shared by two records
+    # that disagree on order_id — correlate() fails both, before any status
+    # comparison ever runs.
+    shared_payment_id = _random_payment_id(rng)
+    shared_amount = _random_amount(rng)
+    for _ in range(2):
+        seq += 1
+        rows.append({
+            "razorpay_payment_id": shared_payment_id,
+            "order_id": _random_order_id(rng, seq),
+            "amount": shared_amount,
+            "razorpay_status": rng.choice(RAW_CODES_BY_SIGNAL[SUCCESS]),
+            "merchant_order_status": SUCCESS,
+            "event_type": PAYMENT_UPDATE,
+            "timestamp": base_time + timedelta(minutes=seq * 3),
+        })
+
+    # ~1 unclassified drift: a status mismatch outside the safe/risky
+    # directions (razorpay=PENDING, merchant=FAILED) -> FLAGGED_UNCLASSIFIED
+    seq += 1
+    rows.append({
+        "razorpay_payment_id": _random_payment_id(rng),
+        "order_id": _random_order_id(rng, seq),
+        "amount": _random_amount(rng),
+        "razorpay_status": rng.choice(RAW_CODES_BY_SIGNAL[PENDING]),
+        "merchant_order_status": FAILED,
         "event_type": PAYMENT_UPDATE,
         "timestamp": base_time + timedelta(minutes=seq * 3),
     })
