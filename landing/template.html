@@ -134,6 +134,46 @@
   .step h3{font-family:var(--font-serif);font-weight:600;font-size:1.08rem;margin:0 0 8px;letter-spacing:-.005em;}
   .step p{margin:0;color:var(--ink-soft);font-size:13.8px;line-height:1.6;}
 
+  /* ---------- the method ---------- */
+  .method-section{background:var(--surface);}
+  .method-list{
+    display:flex;flex-direction:column;gap:32px;
+    max-width:740px;margin:0 auto 52px;
+  }
+  .method-item{display:flex;gap:20px;align-items:flex-start;}
+  .method-num{
+    font-family:var(--font-serif);font-size:13px;font-weight:600;color:var(--gold);
+    width:30px;flex-shrink:0;padding-top:4px;letter-spacing:.03em;
+  }
+  .method-body h3{font-family:var(--font-serif);font-weight:600;font-size:1.08rem;margin:0 0 8px;letter-spacing:-.005em;}
+  .method-body p{margin:0;color:var(--ink-soft);font-size:14.5px;line-height:1.7;}
+  .method-body code{
+    background:var(--surface-alt);border:1px solid var(--border);padding:1px 6px;border-radius:5px;
+    font-family:var(--font-mono);font-size:12.5px;color:var(--ink);
+  }
+  .method-body b{color:var(--ink);}
+
+  .decision-table-wrap{max-width:920px;margin:0 auto;}
+  .decision-table-label{
+    text-align:center;font-size:12px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
+    color:var(--ink-faint);margin-bottom:16px;
+  }
+  .table-scroll{
+    overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius-lg);
+    background:var(--surface-alt);box-shadow:var(--shadow-sm);
+  }
+  .decision-table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:580px;}
+  .decision-table th{
+    text-align:left;padding:13px 20px;background:var(--surface-alt);color:var(--ink-soft);
+    font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--border);
+  }
+  .decision-table td{padding:14px 20px;border-bottom:1px solid var(--border);color:var(--ink);background:var(--surface);}
+  .decision-table tbody tr:last-child td{border-bottom:none;}
+  .decision-table .badge{
+    display:inline-block;padding:3px 11px;border-radius:999px;font-size:11px;font-weight:700;
+    color:#ffffff;white-space:nowrap;
+  }
+
   /* ---------- impact numbers ---------- */
   .impact-section{background:var(--surface-alt);border-top:1px solid var(--border);border-bottom:1px solid var(--border);}
   .impact-note{text-align:center;font-size:13px;color:var(--ink-faint);margin-bottom:8px;}
@@ -192,6 +232,7 @@
     <div class="nav-links">
       <a href="#gap">The gap</a>
       <a href="#how-it-works">How it works</a>
+      <a href="#method">The method</a>
       <a href="#impact">Impact</a>
       <a href="#proof">Proof</a>
     </div>
@@ -274,6 +315,73 @@
         <div class="step-index">04</div>
         <h3>Act &amp; log</h3>
         <p>Every decision — corrected, flagged, or disputed — written to an audit trail.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="method-section tight" id="method">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <div class="section-kicker">Under the hood</div>
+      <h2>The method, step by step</h2>
+      <p>Every audit_log row traces back to this exact rule set. Nothing is inferred, nothing is guessed.</p>
+    </div>
+
+    <div class="method-list">
+      <div class="method-item reveal">
+        <div class="method-num">01</div>
+        <div class="method-body">
+          <h3>Correlate before comparing anything</h3>
+          <p>The engine checks whether <code>razorpay_payment_id</code> maps to exactly one <code>order_id</code> and one <code>amount</code> across the whole batch. If a payment id resolves to conflicting orders or amounts, the record is marked <b>CORRELATION_FAILED</b> and skipped &mdash; it is never compared against data it doesn't actually belong to.</p>
+        </div>
+      </div>
+      <div class="method-item reveal">
+        <div class="method-num">02</div>
+        <div class="method-body">
+          <h3>Catch reversals before they're mistaken for a match</h3>
+          <p>If the event type is <code>SETTLEMENT_REVERSED</code> and this order was already resolved earlier in the same batch, it's routed straight to <b>DISPUTED</b> &mdash; regardless of what the status fields say. This check runs before the status compare, so a reversal can never be silently absorbed into "verified in sync."</p>
+        </div>
+      </div>
+      <div class="method-item reveal">
+        <div class="method-num">03</div>
+        <div class="method-body">
+          <h3>Fall back to the LLM only for what Python can't classify</h3>
+          <p>If <code>razorpay_status</code> isn't in the deterministic lookup table, the engine makes its one and only LLM call: Groq proposes a category for the unmapped code. That proposal is logged as <b>UNCONFIRMED</b> and never triggers an action on its own &mdash; it's a suggestion for a human to review, not an automatic outcome.</p>
+        </div>
+      </div>
+      <div class="method-item reveal">
+        <div class="method-num">04</div>
+        <div class="method-body">
+          <h3>Compare with a direction, not a guess</h3>
+          <p>Once correlation, the reversal check, and the unmapped check are all clear, the two statuses are compared. The direction of the mismatch matters more than the mismatch itself &mdash; the table below shows exactly which combinations auto-correct and which only ever get flagged.</p>
+        </div>
+      </div>
+      <div class="method-item reveal">
+        <div class="method-num">05</div>
+        <div class="method-body">
+          <h3>Log exactly once, no matter how many times it runs</h3>
+          <p><code>record_id</code> is a primary key on <code>audit_log</code>. Re-running the pipeline against an already-processed batch can't create duplicate rows &mdash; every record is claimed and written exactly once.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="decision-table-wrap reveal">
+      <div class="decision-table-label">Quick reference &middot; the compare step</div>
+      <div class="table-scroll">
+        <table class="decision-table">
+          <thead>
+            <tr><th>Condition</th><th>Direction</th><th>Outcome</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Razorpay status matches merchant status</td><td>&mdash;</td><td><span class="badge" style="background:#6b7280">Verified in sync</span></td></tr>
+            <tr><td>Razorpay = SUCCESS, merchant = PENDING or FAILED</td><td>Safe</td><td><span class="badge" style="background:#2f7d52">Auto-corrected</span></td></tr>
+            <tr><td>Razorpay = FAILED, merchant = SUCCESS</td><td>Risky</td><td><span class="badge" style="background:#a2661f">Flagged for review</span></td></tr>
+            <tr><td>Any other status mismatch</td><td>Unclassified</td><td><span class="badge" style="background:#a2661f">Flagged for review</span></td></tr>
+            <tr><td>SETTLEMENT_REVERSED on an already-resolved order</td><td>&mdash;</td><td><span class="badge" style="background:#a13a34">Disputed</span></td></tr>
+            <tr><td>razorpay_status not in the lookup table</td><td>&mdash;</td><td><span class="badge" style="background:#5b4a86">AI-classified &middot; unconfirmed</span></td></tr>
+          </tbody>
+        </table>
       </div>
     </div>
   </div>
