@@ -1,4 +1,4 @@
-# Order Sync Agent
+# Payment Resolver Engine
 
 **Razorpay already knows what happened to a payment. This makes sure your system does too.**
 
