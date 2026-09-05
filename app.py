@@ -147,18 +147,6 @@ footer, header {visibility: hidden;}
 .metric-card.hero-metric .label { color: #d7f5e3; }
 .metric-card.hero-metric .value { color: #ffffff; }
 
-.small-stats {
-    display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px;
-}
-.small-stat {
-    background: #f8f9fb;
-    border: 1px solid #eceef2;
-    border-radius: 10px;
-    padding: 8px 14px;
-    font-size: 13px;
-    color: #374151;
-}
-.small-stat b { color: #111827; }
 
 [data-testid="stVegaLiteChart"] {
     border: 1px solid rgba(148, 163, 184, 0.3);
@@ -229,46 +217,32 @@ table.audit-table td.reason { color: #6b7280; font-size: 12.5px; max-width: 340p
 """
 
 # st.markdown's unsafe_allow_html inserts via innerHTML, which never executes
-# <script> tags and strips inline event-handler attributes too -- neither can
-# run custom JS. st.components.v1.html renders in a real (same-origin) iframe
-# where <script> does execute, so it's used here to reach into the parent
-# page: (1) read the *actual* rendered background continuously to keep
-# .section-title legible -- prefers-color-scheme only reflects OS/browser
-# preference and misses an explicit in-app theme override made in Settings --
-# and (2) flip Streamlit's own theme when the toggle button is clicked, via
-# the same localStorage key Settings writes to (stActiveTheme-/-v1).
-def build_theme_script(toggle_clicked: bool) -> str:
-    return f"""
+# <script> tags -- st.components.v1.html renders in a real (same-origin)
+# iframe where <script> does execute, so it's used here to reach into the
+# parent page and read the *actual* rendered background continuously, to
+# keep .section-title legible -- prefers-color-scheme only reflects
+# OS/browser preference and misses an explicit in-app theme override made
+# in Settings, independent of it.
+SECTION_TITLE_THEME_SCRIPT = """
 <script>
-(function(){{
+(function(){
   var doc = window.parent.document;
-
-  if ({str(toggle_clicked).lower()}) {{
-    var key = 'stActiveTheme-/-v1';
-    var current = {{name: 'Light'}};
-    try {{ current = JSON.parse(window.parent.localStorage.getItem(key) || '{{}}'); }} catch (e) {{}}
-    var next = current.name === 'Dark' ? 'Light' : 'Dark';
-    window.parent.localStorage.setItem(key, JSON.stringify({{name: next}}));
-    window.parent.location.reload();
-    return;
-  }}
-
-  function isDarkBg(){{
+  function isDarkBg(){
     var bg = getComputedStyle(doc.body).backgroundColor;
     var m = bg.match(/\\d+/g);
     if(!m) return false;
     return (parseInt(m[0])+parseInt(m[1])+parseInt(m[2]))/3 < 128;
-  }}
-  function applyTheme(){{
+  }
+  function applyTheme(){
     var color = isDarkBg() ? '#e5e7eb' : '#111827';
-    doc.querySelectorAll('.section-title').forEach(function(el){{
+    doc.querySelectorAll('.section-title').forEach(function(el){
       if (el.style.color !== color) el.style.color = color;
-    }});
-  }}
+    });
+  }
   if (window.parent.__sectionTitleThemeInterval) clearInterval(window.parent.__sectionTitleThemeInterval);
   applyTheme();
   window.parent.__sectionTitleThemeInterval = setInterval(applyTheme, 400);
-}})();
+})();
 </script>
 """
 
@@ -296,9 +270,10 @@ def load_data():
     return orders, audit
 
 
-def metric_card(label: str, value: str, hero: bool = False) -> str:
+def metric_card(label: str, value: str, hero: bool = False, accent: str | None = None) -> str:
     cls = "metric-card hero-metric" if hero else "metric-card"
-    return f'<div class="{cls}"><div class="label">{html.escape(label)}</div><div class="value">{value}</div></div>'
+    style = f' style="border-left: 4px solid {accent};"' if accent else ""
+    return f'<div class="{cls}"{style}><div class="label">{html.escape(label)}</div><div class="value">{value}</div></div>'
 
 
 def action_badge(action: str) -> str:
@@ -437,11 +412,7 @@ def render_outcome_chart(counts: pd.Series):
 
 def main():
     st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
-
-    _, toggle_col = st.columns([9, 1])
-    with toggle_col:
-        toggle_clicked = st.button("🌓 Theme", key="theme_toggle_btn", help="Switch light/dark mode", use_container_width=True)
-    components.html(build_theme_script(toggle_clicked), height=0)
+    components.html(SECTION_TITLE_THEME_SCRIPT, height=0)
 
     st.markdown(
         """
@@ -482,30 +453,67 @@ def main():
     recovered_amount = merged.loc[merged["action_taken"] == AUTO_CORRECTED, "amount"].sum()
 
     st.markdown('<div class="section-title"><span class="dot"></span>Summary</div>', unsafe_allow_html=True)
-    c1, c2, c3, c4, c5, c6 = st.columns(6)
-    with c1:
-        st.markdown(metric_card("Total processed", str(len(audit))), unsafe_allow_html=True)
-    with c2:
-        st.markdown(metric_card("Verified in sync", str(int(counts.get(VERIFIED_IN_SYNC, 0)))), unsafe_allow_html=True)
-    with c3:
-        st.markdown(metric_card("Auto-corrected", str(int(counts.get(AUTO_CORRECTED, 0)))), unsafe_allow_html=True)
-    with c4:
-        st.markdown(metric_card("Recovered amount", f"Rs.{recovered_amount:,.0f}", hero=True), unsafe_allow_html=True)
-    with c5:
-        flagged_total = int(counts.get(FLAGGED_RISKY_DRIFT, 0)) + int(counts.get(FLAGGED_UNCLASSIFIED, 0))
-        st.markdown(metric_card("Flagged for review", str(flagged_total)), unsafe_allow_html=True)
-    with c6:
-        st.markdown(metric_card("Disputed", str(int(counts.get(DISPUTED, 0)))), unsafe_allow_html=True)
 
-    st.markdown(
-        f"""
-        <div class="small-stats">
-            <div class="small-stat">AI-classified (unmapped): <b>{int(counts.get(UNCONFIRMED_CLASSIFICATION, 0))}</b></div>
-            <div class="small-stat">Correlation failures: <b>{int(counts.get(CORRELATION_FAILED, 0))}</b></div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    row1 = st.columns(3)
+    with row1[0]:
+        st.markdown(metric_card("Total processed", str(len(audit)), accent="#9ca3af"), unsafe_allow_html=True)
+    with row1[1]:
+        st.markdown(
+            metric_card("Verified in sync", str(int(counts.get(VERIFIED_IN_SYNC, 0))), accent=ACTION_ACCENT[VERIFIED_IN_SYNC]),
+            unsafe_allow_html=True,
+        )
+    with row1[2]:
+        st.markdown(
+            metric_card("Auto-corrected", str(int(counts.get(AUTO_CORRECTED, 0))), accent=ACTION_ACCENT[AUTO_CORRECTED]),
+            unsafe_allow_html=True,
+        )
+
+    row2 = st.columns(3)
+    with row2[0]:
+        st.markdown(metric_card("Recovered amount", f"Rs.{recovered_amount:,.0f}", hero=True), unsafe_allow_html=True)
+    with row2[1]:
+        st.markdown(
+            metric_card(
+                "Flagged · risky drift",
+                str(int(counts.get(FLAGGED_RISKY_DRIFT, 0))),
+                accent=ACTION_ACCENT[FLAGGED_RISKY_DRIFT],
+            ),
+            unsafe_allow_html=True,
+        )
+    with row2[2]:
+        st.markdown(
+            metric_card(
+                "Flagged · unclassified",
+                str(int(counts.get(FLAGGED_UNCLASSIFIED, 0))),
+                accent=ACTION_ACCENT[FLAGGED_UNCLASSIFIED],
+            ),
+            unsafe_allow_html=True,
+        )
+
+    row3 = st.columns(3)
+    with row3[0]:
+        st.markdown(
+            metric_card("Disputed", str(int(counts.get(DISPUTED, 0))), accent=ACTION_ACCENT[DISPUTED]),
+            unsafe_allow_html=True,
+        )
+    with row3[1]:
+        st.markdown(
+            metric_card(
+                "AI-classified",
+                str(int(counts.get(UNCONFIRMED_CLASSIFICATION, 0))),
+                accent=ACTION_ACCENT[UNCONFIRMED_CLASSIFICATION],
+            ),
+            unsafe_allow_html=True,
+        )
+    with row3[2]:
+        st.markdown(
+            metric_card(
+                "Correlation failures",
+                str(int(counts.get(CORRELATION_FAILED, 0))),
+                accent=ACTION_ACCENT[CORRELATION_FAILED],
+            ),
+            unsafe_allow_html=True,
+        )
 
     st.markdown('<div class="section-title"><span class="dot"></span>Outcome distribution</div>', unsafe_allow_html=True)
     render_outcome_chart(counts)
