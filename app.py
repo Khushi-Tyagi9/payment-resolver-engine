@@ -213,6 +213,9 @@ table.audit-table td.reason { color: #6b7280; font-size: 12.5px; max-width: 340p
     background-color: #1d4fd8 !important;
     border-radius: 999px !important;
 }
+[data-testid="stMultiSelect"] [data-baseweb="tag"] span[title] {
+    color: #ffffff !important;
+}
 </style>
 """
 
