@@ -382,11 +382,10 @@ def render_outcome_chart(counts: pd.Series):
         for c, r in zip(df["count"], rank)
     ]
 
-    # Neutral gray verified against both the light (#ffffff) and dark
-    # (#0e1117) app backgrounds -- 5.2:1 / 3.64:1 contrast respectively.
-    # Canvas-rendered chart text can't be made theme-reactive via CSS, so
-    # this single value has to hold up in both.
-    NEUTRAL_TEXT = "#7c8798"
+    # The app is light-mode only (.streamlit/config.toml) -- this dark gray
+    # (10.31:1 on white) is the same tone already used for reason/note text
+    # elsewhere in the dashboard, not a dual-theme compromise value anymore.
+    NEUTRAL_TEXT = "#374151"
     GRID_COLOR = "#94a3b8"
 
     chart = (

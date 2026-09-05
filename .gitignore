@@ -8,6 +8,6 @@ env/
 *.sqlite
 *.sqlite3
 .env
-.streamlit/
+.streamlit/secrets.toml
 *.egg-info/
 .pytest_cache/
