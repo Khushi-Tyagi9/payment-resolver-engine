@@ -111,6 +111,9 @@ CUSTOM_CSS = """
     align-items: center;
     gap: 8px;
 }
+@media (prefers-color-scheme: dark) {
+    .section-title { color: #e5e7eb; }
+}
 .section-title .dot {
     width: 8px; height: 8px; border-radius: 50%;
     background: #1d4fd8; display: inline-block;
@@ -347,7 +350,12 @@ def render_outcome_chart(counts: pd.Series):
         .mark_bar(cornerRadiusEnd=6, size=26)
         .encode(
             x=alt.X("count:Q", title=None, axis=alt.Axis(grid=True, gridColor="#f0f1f3")),
-            y=alt.Y("label:N", sort=None, title=None, axis=alt.Axis(labelLimit=240)),
+            y=alt.Y(
+                "label:N",
+                sort=None,
+                title=None,
+                axis=alt.Axis(labelLimit=240, labelColor="#7c8798", labelFontSize=13),
+            ),
             color=alt.Color(
                 "action:N",
                 scale=alt.Scale(domain=CHART_ORDER, range=[ACTION_ACCENT[a] for a in CHART_ORDER]),
