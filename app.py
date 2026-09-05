@@ -17,6 +17,8 @@ from resolver.actions import (
     UNCONFIRMED_CLASSIFICATION,
     CORRELATION_FAILED,
 )
+from resolver.data_generator import generate_batch
+from resolver.pipeline import run_batch
 
 st.set_page_config(page_title="Payment Resolver Engine", page_icon="⚡", layout="wide")
 
@@ -215,6 +217,20 @@ table.audit-table td.reason { color: #6b7280; font-size: 12.5px; max-width: 340p
 """
 
 
+def ensure_batch_exists():
+    """Self-initialize on first load (e.g. a fresh Streamlit Cloud deploy)
+    so the dashboard works without anyone running run_reconciliation.py
+    by hand first. No-op once the database already exists."""
+    if db.DEFAULT_DB_PATH.exists():
+        return
+    conn = db.get_connection()
+    db.reset_schema(conn)
+    batch = generate_batch()
+    db.seed_orders_batch(conn, batch)
+    run_batch(conn, batch)
+    conn.close()
+
+
 @st.cache_data(ttl=5)
 def load_data():
     conn = db.get_connection()
@@ -357,6 +373,16 @@ def main():
         """,
         unsafe_allow_html=True,
     )
+
+    try:
+        ensure_batch_exists()
+    except Exception as e:
+        st.error(
+            "Could not self-initialize the batch on first load. This usually means "
+            "GROQ_API_KEY isn't set (needed for the one unmapped-status-code record). "
+            f"Underlying error: {e}"
+        )
+        return
 
     try:
         orders, audit = load_data()
