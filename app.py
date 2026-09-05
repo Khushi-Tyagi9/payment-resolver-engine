@@ -6,6 +6,7 @@ import html
 import altair as alt
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 
 from resolver import db
 from resolver.actions import (
@@ -64,7 +65,8 @@ CHART_ORDER = [
 
 CUSTOM_CSS = """
 <style>
-#MainMenu, footer, header {visibility: hidden;}
+footer, header {visibility: hidden;}
+#MainMenu {visibility: visible !important; z-index: 999;}
 .block-container {padding-top: 1.5rem; padding-bottom: 3rem; max-width: 1200px;}
 
 .hero {
@@ -110,9 +112,6 @@ CUSTOM_CSS = """
     display: flex;
     align-items: center;
     gap: 8px;
-}
-@media (prefers-color-scheme: dark) {
-    .section-title { color: #e5e7eb; }
 }
 .section-title .dot {
     width: 8px; height: 8px; border-radius: 50%;
@@ -160,6 +159,13 @@ CUSTOM_CSS = """
     color: #374151;
 }
 .small-stat b { color: #111827; }
+
+[data-testid="stVegaLiteChart"] {
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    border-radius: 16px;
+    padding: 20px 18px 6px 6px;
+    box-shadow: 0 2px 12px rgba(17, 24, 39, 0.05);
+}
 
 .legend-row { display: flex; gap: 14px; flex-wrap: wrap; margin: 4px 0 14px 0; }
 .legend-chip { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: #4b5563; }
@@ -220,6 +226,50 @@ table.audit-table td.reason { color: #6b7280; font-size: 12.5px; max-width: 340p
     color: #ffffff !important;
 }
 </style>
+"""
+
+# st.markdown's unsafe_allow_html inserts via innerHTML, which never executes
+# <script> tags and strips inline event-handler attributes too -- neither can
+# run custom JS. st.components.v1.html renders in a real (same-origin) iframe
+# where <script> does execute, so it's used here to reach into the parent
+# page: (1) read the *actual* rendered background continuously to keep
+# .section-title legible -- prefers-color-scheme only reflects OS/browser
+# preference and misses an explicit in-app theme override made in Settings --
+# and (2) flip Streamlit's own theme when the toggle button is clicked, via
+# the same localStorage key Settings writes to (stActiveTheme-/-v1).
+def build_theme_script(toggle_clicked: bool) -> str:
+    return f"""
+<script>
+(function(){{
+  var doc = window.parent.document;
+
+  if ({str(toggle_clicked).lower()}) {{
+    var key = 'stActiveTheme-/-v1';
+    var current = {{name: 'Light'}};
+    try {{ current = JSON.parse(window.parent.localStorage.getItem(key) || '{{}}'); }} catch (e) {{}}
+    var next = current.name === 'Dark' ? 'Light' : 'Dark';
+    window.parent.localStorage.setItem(key, JSON.stringify({{name: next}}));
+    window.parent.location.reload();
+    return;
+  }}
+
+  function isDarkBg(){{
+    var bg = getComputedStyle(doc.body).backgroundColor;
+    var m = bg.match(/\\d+/g);
+    if(!m) return false;
+    return (parseInt(m[0])+parseInt(m[1])+parseInt(m[2]))/3 < 128;
+  }}
+  function applyTheme(){{
+    var color = isDarkBg() ? '#e5e7eb' : '#111827';
+    doc.querySelectorAll('.section-title').forEach(function(el){{
+      if (el.style.color !== color) el.style.color = color;
+    }});
+  }}
+  if (window.parent.__sectionTitleThemeInterval) clearInterval(window.parent.__sectionTitleThemeInterval);
+  applyTheme();
+  window.parent.__sectionTitleThemeInterval = setInterval(applyTheme, 400);
+}})();
+</script>
 """
 
 
@@ -344,17 +394,30 @@ def render_outcome_chart(counts: pd.Series):
         "count": [int(counts.get(a, 0)) for a in CHART_ORDER],
     })
     df["label"] = df["action"].map(FRIENDLY_LABEL)
+    max_count = max(1, int(df["count"].max()))
+
+    # Neutral gray verified against both the light (#ffffff) and dark
+    # (#0e1117) app backgrounds -- 5.2:1 / 3.64:1 contrast respectively.
+    # Canvas-rendered chart text can't be made theme-reactive via CSS, so
+    # this single value has to hold up in both.
+    NEUTRAL_TEXT = "#7c8798"
+    GRID_COLOR = "rgba(148, 163, 184, 0.28)"
 
     chart = (
         alt.Chart(df)
-        .mark_bar(cornerRadiusEnd=6, size=26)
+        .mark_bar(cornerRadius=8, size=22)
         .encode(
-            x=alt.X("count:Q", title=None, axis=alt.Axis(grid=True, gridColor="#f0f1f3")),
+            x=alt.X(
+                "count:Q",
+                title=None,
+                axis=alt.Axis(grid=True, gridColor=GRID_COLOR, gridDash=[3, 4], labelColor=NEUTRAL_TEXT, tickColor=GRID_COLOR, domain=False),
+                scale=alt.Scale(domain=[0, max_count * 1.18]),
+            ),
             y=alt.Y(
                 "label:N",
                 sort=None,
                 title=None,
-                axis=alt.Axis(labelLimit=240, labelColor="#7c8798", labelFontSize=13),
+                axis=alt.Axis(labelLimit=240, labelColor=NEUTRAL_TEXT, labelFontSize=13, domain=False, ticks=False),
             ),
             color=alt.Color(
                 "action:N",
@@ -363,14 +426,22 @@ def render_outcome_chart(counts: pd.Series):
             ),
             tooltip=[alt.Tooltip("label:N", title="Outcome"), alt.Tooltip("count:Q", title="Count")],
         )
-        .properties(height=220)
+        .properties(height=260)
     )
-    text = chart.mark_text(align="left", dx=6, color="#374151", fontWeight=600).encode(text="count:Q")
-    st.altair_chart((chart + text).configure_view(strokeWidth=0).configure_axis(labelColor="#374151", labelFontSize=12.5), use_container_width=True)
+    text = chart.mark_text(align="left", dx=8, color=NEUTRAL_TEXT, fontWeight=700, fontSize=13).encode(text="count:Q")
+    st.altair_chart(
+        (chart + text).configure_view(strokeWidth=0).configure_axis(labelFontSize=12.5, labelPadding=6),
+        use_container_width=True,
+    )
 
 
 def main():
     st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
+
+    _, toggle_col = st.columns([9, 1])
+    with toggle_col:
+        toggle_clicked = st.button("🌓 Theme", key="theme_toggle_btn", help="Switch light/dark mode", use_container_width=True)
+    components.html(build_theme_script(toggle_clicked), height=0)
 
     st.markdown(
         """
