@@ -138,7 +138,7 @@ python generate_landing_page.py
 
 ## What this deliberately doesn't do
 
-Scoped down from a real-time, webhook-driven design to a single deterministic batch run, on purpose, to guarantee measured, honest results rather than a beautifully designed system with nothing to show. No live webhook listener, no signature verification, no concurrency handling, no time-decay windows. The reasoning behind that scoping, and the fuller real-time design it was cut from, is worth a conversation, not a rebuild.
+Scoped down from a real-time, webhook-driven design to a single deterministic batch run, on purpose, to guarantee measured, honest results rather than a beautifully designed system with nothing to show. No live webhook listener, no signature verification, no concurrency handling, no time-decay windows. The full real-time design this was scoped down from, including the dedup guards, terminal locks, and time-decay windows it would have needed, is documented in [`payment_resolver_spec.md`](payment_resolver_spec.md).
 
 ---
 
