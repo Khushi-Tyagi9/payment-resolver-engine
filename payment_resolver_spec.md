@@ -1,4 +1,4 @@
-# Payment Resolver Engine: Build Spec
+# Payment Resolver Engine: Design Notes
 **Track 3: AI Revenue Recovery, Razorpay AI Buildathon 2026**
 
 ## Problem
@@ -8,14 +8,14 @@ Razorpay already reconciles bank and gateway internally (late authorization, web
 A batch reconciliation engine that compares Razorpay's resolved payment status against the merchant's own order record for a batch of transactions, detects drift, takes a direction-aware bounded recovery action, and logs every decision to an audit trail.
 
 ## Scope: BATCH, not live webhooks
-Process a batch of 50+ records once. No live webhook listener, no concurrency handling, no time-decay windows. This is the single most important scoping decision. It's what makes "measured results" achievable by the deadline instead of merely designed.
+The engine processes a batch of 50+ records once: no live webhook listener, no concurrency handling, no time-decay windows. This was the single most important scoping decision. It's what makes "measured results" achievable by the deadline instead of merely designed.
 
 ## Data model
 
 **orders_batch** (input, synthetic, generate first)
 `record_id, razorpay_payment_id, order_id, amount, razorpay_status, merchant_order_status, event_type, timestamp`
 
-Seed with a deliberate mix:
+The batch is seeded with a deliberate mix:
 - ~35 clean matches (razorpay_status == merchant_order_status)
 - ~8 drift, safe direction: razorpay=SUCCESS, merchant=PENDING/FAILED
 - ~4 drift, risky direction: razorpay=FAILED, merchant=SUCCESS
@@ -29,7 +29,7 @@ Seed with a deliberate mix:
 
 ## Processing logic (deterministic, run once per record, in order)
 
-1. **Correlate**: does razorpay_payment_id map to exactly one order_id with matching amount? If not → log `CORRELATION_FAILED`, skip. (Do this before any comparison. Never compare unrelated transactions.)
+1. **Correlate**: does razorpay_payment_id map to exactly one order_id with matching amount? If not → log `CORRELATION_FAILED`, skip. (This runs before any comparison, so nothing is ever compared against a record it doesn't belong to.)
 2. **Compare status**:
    - Match → log `VERIFIED_IN_SYNC`, no action
    - Drift, safe direction (Razorpay=success, merchant=pending/failed) → **auto-correct** merchant status, log `AUTO_CORRECTED`
@@ -39,7 +39,7 @@ Seed with a deliberate mix:
 5. **Idempotency**: unique constraint on record_id in audit_log, so each record is claimed and processed exactly once
 
 ## LLM's one job
-Classify an unmapped razorpay_status code into a proposed category, flagged unconfirmed, logged for review, never auto-executed. That's it. Everything else (comparison, correction, logging) is deterministic Python. Say this plainly if asked "where's the AI": it's a small, honest, defensible answer, not a weakness.
+The LLM's only job is to classify an unmapped razorpay_status code into a proposed category, flagged unconfirmed and logged for review, never auto-executed. That's it. Everything else (comparison, correction, logging) is deterministic Python. It's a small, honest, defensible answer to "where's the AI," not a weakness.
 
 ## Tech stack
 
@@ -64,7 +64,7 @@ Classify an unmapped razorpay_status code into a proposed category, flagged unco
       return result
   ```
 - **Dashboard:** Streamlit. `st.metric()` for the top cards, native bar chart for outcome distribution, `st.dataframe()` for the audit log, `st.selectbox()` + rendered text for the money trace timeline. One file, `streamlit run app.py`.
-- **Fallback if Streamlit setup costs time:** a static HTML page generated straight from the SQLite data.
+- **Fallback:** if Streamlit setup had cost too much time, the plan was a static HTML page generated straight from the SQLite data.
 
 ## UI layout
 
@@ -83,18 +83,20 @@ Disputed (reversal caught):   2
 AI-classified (unmapped):     1
 Correlation failures:         0
 ```
-Every row traceable to an audit_log entry. Pull one up live during the pitch.
+Every row is traceable to an audit_log entry, ready to pull up live during the pitch.
 
-## Build order (fastest path, do in this sequence)
+## Build order
+The implementation proceeded in this sequence, because each stage depends on the last being correct first:
 1. Batch data generator with the 5 scenario types above
-2. Correlation + drift comparison (pure Python, test immediately, no infra needed)
+2. Correlation + drift comparison (pure Python, testable immediately, no infra needed)
 3. Direction-aware recovery action + audit logging
 4. Run the batch → get real numbers → fix whatever's actually broken
 5. LLM classifier for the one unmapped case
-6. Minimal output: a printed table or single-page dashboard, don't over-invest here
-7. One Money Trace line for a sample record: templated text, skip a live LLM call unless time remains
+6. Minimal output: a printed table or single-page dashboard, kept deliberately minimal rather than over-invested
+7. One Money Trace line for a sample record: templated text, with a live LLM call only if time remained
 
-## Explicitly OUT of scope: do not build these
+## Deliberately out of scope
+Cut to guarantee a working, measured result by the deadline instead of a partially-built real-time system:
 - Live webhook listener / real-time event handling
 - Concurrency locking, atomic claim rows for race conditions
 - Time-decay / grace-window timers
