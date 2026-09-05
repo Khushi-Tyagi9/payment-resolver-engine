@@ -344,7 +344,7 @@ def render_outcome_chart(counts: pd.Series):
         .mark_bar(cornerRadiusEnd=6, size=26)
         .encode(
             x=alt.X("count:Q", title=None, axis=alt.Axis(grid=True, gridColor="#f0f1f3")),
-            y=alt.Y("label:N", sort=None, title=None),
+            y=alt.Y("label:N", sort=None, title=None, axis=alt.Axis(labelLimit=240)),
             color=alt.Color(
                 "action:N",
                 scale=alt.Scale(domain=CHART_ORDER, range=[ACTION_ACCENT[a] for a in CHART_ORDER]),
