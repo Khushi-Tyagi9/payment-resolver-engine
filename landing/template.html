@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Order Sync Agent — Payment Reconciliation for Razorpay</title>
-<meta name="description" content="Razorpay already knows what happened to a payment. Order Sync Agent makes sure your merchant system does too — batch reconciliation with a direction-aware recovery action and a full audit trail.">
-<meta property="og:title" content="Order Sync Agent — Payment Reconciliation for Razorpay">
+<title>Order Sync Agent: Payment Reconciliation for Razorpay</title>
+<meta name="description" content="Razorpay already knows what happened to a payment. Order Sync Agent makes sure your merchant system does too. Batch reconciliation with a direction-aware recovery action and a full audit trail.">
+<meta property="og:title" content="Order Sync Agent: Payment Reconciliation for Razorpay">
 <meta property="og:description" content="__RECOVERED_AMOUNT_DISPLAY__ recovered across __TOTAL_PROCESSED__ reconciled orders. Direction-aware drift detection, deterministic Python, one narrow LLM call.">
 <meta property="og:type" content="website">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%2326314a'/%3E%3Cpath d='M26 52 L43 68 L76 30' stroke='%232f7d52' stroke-width='11' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
@@ -281,7 +281,7 @@
       </div>
     </div>
 
-    <p class="evidence reveal">This isn't hypothetical. In a documented WooCommerce Razorpay plugin bug, a successful renewal payment left the order marked <strong>pending</strong> even though Razorpay had confirmed it succeeded — the webhook fired correctly, but the store's own order table was never updated. Razorpay's records were right. The merchant's records were wrong. Nothing caught it until a customer complained.</p>
+    <p class="evidence reveal">This isn't hypothetical. In a documented WooCommerce Razorpay plugin bug, a successful renewal payment left the order marked <strong>pending</strong> even though Razorpay had confirmed it succeeded. The webhook fired correctly, but the store's own order table was never updated. Razorpay's records were right. The merchant's records were wrong. Nothing caught it until a customer complained.</p>
   </div>
 </section>
 
@@ -315,7 +315,7 @@
         <div class="step-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="5.5" y="4" width="13" height="17" rx="1.6" stroke="currentColor" stroke-width="2"/><rect x="8.5" y="2.3" width="7" height="4" rx="1.2" stroke="currentColor" stroke-width="2"/><path d="M8.5 11.5h7M8.5 14.5h7M8.5 17.5h4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div>
         <div class="step-index">04</div>
         <h3>Act &amp; log</h3>
-        <p>Every decision — corrected, flagged, or disputed — written to an audit trail.</p>
+        <p>Every decision, whether corrected, flagged, or disputed, is written to an audit trail.</p>
       </div>
     </div>
   </div>
@@ -334,35 +334,35 @@
         <div class="method-num">01</div>
         <div class="method-body">
           <h3>Correlate before comparing anything</h3>
-          <p>The engine checks whether <code>razorpay_payment_id</code> maps to exactly one <code>order_id</code> and one <code>amount</code> across the whole batch. If a payment id resolves to conflicting orders or amounts, the record is marked <b>CORRELATION_FAILED</b> and skipped &mdash; it is never compared against data it doesn't actually belong to.</p>
+          <p>The engine checks whether <code>razorpay_payment_id</code> maps to exactly one <code>order_id</code> and one <code>amount</code> across the whole batch. If a payment id resolves to conflicting orders or amounts, the record is marked <b>CORRELATION_FAILED</b> and skipped. It is never compared against data it doesn't actually belong to.</p>
         </div>
       </div>
       <div class="method-item reveal">
         <div class="method-num">02</div>
         <div class="method-body">
           <h3>Catch reversals before they're mistaken for a match</h3>
-          <p>If the event type is <code>SETTLEMENT_REVERSED</code> and this order was already resolved earlier in the same batch, it's routed straight to <b>DISPUTED</b> &mdash; regardless of what the status fields say. This check runs before the status compare, so a reversal can never be silently absorbed into "verified in sync."</p>
+          <p>If the event type is <code>SETTLEMENT_REVERSED</code> and this order was already resolved earlier in the same batch, it's routed straight to <b>DISPUTED</b>, regardless of what the status fields say. This check runs before the status compare, so a reversal can never be silently absorbed into "verified in sync."</p>
         </div>
       </div>
       <div class="method-item reveal">
         <div class="method-num">03</div>
         <div class="method-body">
           <h3>Fall back to the LLM only for what Python can't classify</h3>
-          <p>If <code>razorpay_status</code> isn't in the deterministic lookup table, the engine makes its one and only LLM call: Groq proposes a category for the unmapped code. That proposal is logged as <b>UNCONFIRMED</b> and never triggers an action on its own &mdash; it's a suggestion for a human to review, not an automatic outcome.</p>
+          <p>If <code>razorpay_status</code> isn't in the deterministic lookup table, the engine makes its one and only LLM call: Groq proposes a category for the unmapped code. That proposal is logged as <b>UNCONFIRMED</b> and never triggers an action on its own. It's a suggestion for a human to review, not an automatic outcome.</p>
         </div>
       </div>
       <div class="method-item reveal">
         <div class="method-num">04</div>
         <div class="method-body">
           <h3>Compare with a direction, not a guess</h3>
-          <p>Once correlation, the reversal check, and the unmapped check are all clear, the two statuses are compared. The direction of the mismatch matters more than the mismatch itself &mdash; the table below shows exactly which combinations auto-correct and which only ever get flagged.</p>
+          <p>Once correlation, the reversal check, and the unmapped check are all clear, the two statuses are compared. The direction of the mismatch matters more than the mismatch itself. The table below shows exactly which combinations auto-correct and which only ever get flagged.</p>
         </div>
       </div>
       <div class="method-item reveal">
         <div class="method-num">05</div>
         <div class="method-body">
           <h3>Log exactly once, no matter how many times it runs</h3>
-          <p><code>record_id</code> is a primary key on <code>audit_log</code>. Re-running the pipeline against an already-processed batch can't create duplicate rows &mdash; every record is claimed and written exactly once.</p>
+          <p><code>record_id</code> is a primary key on <code>audit_log</code>. Re-running the pipeline against an already-processed batch can't create duplicate rows. Every record is claimed and written exactly once.</p>
         </div>
       </div>
     </div>
@@ -395,7 +395,7 @@
       <h2>Real numbers, this run</h2>
       <p>__TOTAL_PROCESSED__ records processed in one batch.</p>
     </div>
-    <div class="impact-note reveal">Generated straight from <code>audit_log</code> in this repo's own SQLite database &mdash; nothing on this page is hand-typed.</div>
+    <div class="impact-note reveal">Generated straight from <code>audit_log</code> in this repo's own SQLite database. Nothing on this page is hand-typed.</div>
     <div class="stat-grid reveal">
       <div class="stat-col" style="--stat-color:#726c5c">
         <div class="num">__VERIFIED_COUNT__</div>
