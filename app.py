@@ -371,21 +371,40 @@ def render_outcome_chart(counts: pd.Series):
     df["label"] = df["action"].map(FRIENDLY_LABEL)
     max_count = max(1, int(df["count"].max()))
 
+    # Real percentages of the real total -- shown only on the top 3 bars so
+    # the small counts (1, 2, 4) don't get cluttered with a near-meaningless
+    # "(2%)". The linear x-axis scale below is untouched by this: proportions
+    # stay honest, verified-in-sync stays visibly the majority outcome.
+    total = int(counts.sum())
+    rank = df["count"].rank(method="min", ascending=False)
+    df["display_text"] = [
+        f"{c} ({c / total * 100:.0f}%)" if r <= 3 and c > 0 else str(c)
+        for c, r in zip(df["count"], rank)
+    ]
+
     # Neutral gray verified against both the light (#ffffff) and dark
     # (#0e1117) app backgrounds -- 5.2:1 / 3.64:1 contrast respectively.
     # Canvas-rendered chart text can't be made theme-reactive via CSS, so
     # this single value has to hold up in both.
     NEUTRAL_TEXT = "#7c8798"
-    GRID_COLOR = "rgba(148, 163, 184, 0.28)"
+    GRID_COLOR = "#94a3b8"
 
     chart = (
         alt.Chart(df)
-        .mark_bar(cornerRadius=8, size=22)
+        .mark_bar(cornerRadius=3, size=24)
         .encode(
             x=alt.X(
                 "count:Q",
                 title=None,
-                axis=alt.Axis(grid=True, gridColor=GRID_COLOR, gridDash=[3, 4], labelColor=NEUTRAL_TEXT, tickColor=GRID_COLOR, domain=False),
+                axis=alt.Axis(
+                    grid=True,
+                    gridColor=GRID_COLOR,
+                    gridOpacity=0.15,
+                    tickCount=5,
+                    labelColor=NEUTRAL_TEXT,
+                    tickColor=GRID_COLOR,
+                    domain=False,
+                ),
                 scale=alt.Scale(domain=[0, max_count * 1.18]),
             ),
             y=alt.Y(
@@ -401,9 +420,9 @@ def render_outcome_chart(counts: pd.Series):
             ),
             tooltip=[alt.Tooltip("label:N", title="Outcome"), alt.Tooltip("count:Q", title="Count")],
         )
-        .properties(height=260)
+        .properties(height=240)
     )
-    text = chart.mark_text(align="left", dx=8, color=NEUTRAL_TEXT, fontWeight=700, fontSize=13).encode(text="count:Q")
+    text = chart.mark_text(align="left", dx=8, color=NEUTRAL_TEXT, fontWeight=700, fontSize=13).encode(text="display_text:N")
     st.altair_chart(
         (chart + text).configure_view(strokeWidth=0).configure_axis(labelFontSize=12.5, labelPadding=6),
         use_container_width=True,
