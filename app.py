@@ -250,9 +250,20 @@ SECTION_TITLE_THEME_SCRIPT = """
 def ensure_batch_exists():
     """Self-initialize on first load (e.g. a fresh Streamlit Cloud deploy)
     so the dashboard works without anyone running run_reconciliation.py
-    by hand first. No-op once the database already exists."""
+    by hand first. No-op once audit_log is actually populated.
+
+    Checks for a non-empty audit_log rather than just a present db file:
+    if a prior attempt got as far as creating the file and seeding
+    orders_batch but then failed before writing any audit rows (e.g. a
+    missing GROQ_API_KEY raised mid-batch), the file alone would exist
+    forever and this would wrongly no-op on every later load.
+    """
     if db.DEFAULT_DB_PATH.exists():
-        return
+        conn = db.get_connection()
+        has_audit_rows = bool(db.fetch_audit_log(conn))
+        conn.close()
+        if has_audit_rows:
+            return
     conn = db.get_connection()
     db.reset_schema(conn)
     batch = generate_batch()
